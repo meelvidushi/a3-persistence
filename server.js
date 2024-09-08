@@ -1,74 +1,113 @@
-const http = require( 'http' ),
-      fs   = require( 'fs' ),
-      // IMPORTANT: you must run `npm install` in the directory for this assignment
-      // to install the mime library if you're testing this on your local machine.
-      // However, Glitch will install it automatically by looking in your package.json
-      // file.
-      mime = require( 'mime' ),
-      dir  = 'public/',
-      port = 3000
+import http from 'http';
+import fs from 'fs';
+import mime from 'mime';
 
-const appdata = [
+const port = 3000, dir = 'public/';
+
+let appdata = [
   { 'model': 'toyota', 'year': 1999, 'mpg': 23 },
   { 'model': 'honda', 'year': 2004, 'mpg': 30 },
-  { 'model': 'ford', 'year': 1987, 'mpg': 14} 
-]
+  { 'model': 'ford', 'year': 1987, 'mpg': 14}
+];
 
-const server = http.createServer( function( request,response ) {
-  if( request.method === 'GET' ) {
-    handleGet( request, response )    
-  }else if( request.method === 'POST' ){
-    handlePost( request, response ) 
+
+const server = http.createServer(function(request, response) {
+  if (request.method === 'GET') {
+    handleGet(request, response);
+  } else if (request.method === 'POST') {
+    handlePost(request, response);
+  } else if (request.method === 'PUT') {
+    handlePut(request, response);
+  } else if (request.method === 'DELETE') {
+    handleDelete(request, response);
   }
-})
+});
 
-const handleGet = function( request, response ) {
-  const filename = dir + request.url.slice( 1 ) 
-
-  if( request.url === '/' ) {
-    sendFile( response, 'public/index.html' )
-  }else{
-    sendFile( response, filename )
+const handleGet = function(request, response) {
+  if (request.url === '/') {
+    sendFile(response, 'public/index.html');
+  } else if (request.url === '/vehicles') {
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(appdata));
+  } else {
+    const filename = dir + request.url.slice(1);
+    sendFile(response, filename);
   }
-}
+};
 
-const handlePost = function( request, response ) {
-  let dataString = ''
+const handlePost = function(request, response) {
+  let dataString = '';
 
-  request.on( 'data', function( data ) {
-      dataString += data 
-  })
+  request.on('data', function(data) {
+    dataString += data;
+  });
 
-  request.on( 'end', function() {
-    console.log( JSON.parse( dataString ) )
+  request.on('end', function() {
+    const newVehicle = JSON.parse(dataString);
+    appdata.push(newVehicle);
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(appdata));
+  });
+};
 
-    // ... do something with the data here!!!
+const handleDelete = function(request, response) {
+  let dataString = '';
 
-    response.writeHead( 200, "OK", {'Content-Type': 'text/plain' })
-    response.end('test')
-  })
-}
+  request.on('data', function(data) {
+    dataString += data;
+  });
 
-const sendFile = function( response, filename ) {
-   const type = mime.getType( filename ) 
+  request.on('end', function() {
+    const { model } = JSON.parse(dataString);
 
-   fs.readFile( filename, function( err, content ) {
+    appdata = appdata.filter(vehicle => vehicle.model !== model);
 
-     // if the error = null, then we've loaded the file successfully
-     if( err === null ) {
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(appdata));
+  });
+};
 
-       // status code: https://httpstatuses.com
-       response.writeHeader( 200, { 'Content-Type': type })
-       response.end( content )
+const sendFile = function(response, filename) {
+  const type = mime.getType(filename);
 
-     }else{
+  fs.readFile(filename, function(err, content) {
+    if (err === null) {
+      response.writeHeader(200, { 'Content-Type': type });
+      response.end(content);
+    } else {
+      response.writeHeader(404);
+      response.end('404 Error: File Not Found');
+    }
+  });
+};
 
-       // file not found, error code 404
-       response.writeHeader( 404 )
-       response.end( '404 Error: File Not Found' )
+const handlePut = function(request, response) {
+  let dataString = '';
 
-     }
-   })
-}
+  request.on('data', function(data) {
+    dataString += data;
+  });
+
+  request.on('end', function() {
+    const updatedVehicle = JSON.parse(dataString);
+    const oldModel = updatedVehicle.oldModel;
+
+    appdata = appdata.map(vehicle => {
+      if (vehicle.model === oldModel) {
+        return {
+          model: updatedVehicle.model,
+          year: updatedVehicle.year,
+          mpg: updatedVehicle.mpg
+        };
+      }
+      return vehicle;
+    });
+
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(appdata));
+  });
+};
+
+
 
 server.listen( process.env.PORT || port )

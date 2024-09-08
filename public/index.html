@@ -1,18 +1,39 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <title>CS4241 Assignment 2</title>
-    <meta charset="utf-8">
-    <script src="js/main.js"></script>
-    <link rel="stylesheet" href="css/main.css">
-    
-    <!-- get rid of favicon error -->
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-  </head>
-  <body>
-    <form>
-      <input type="text" id="yourname" value="your name here">
-      <button>submit</button>
-    </form>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Entry Form</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<h1>Vehicle Entry Form</h1>
+<form id="vehicleForm">
+  <label for="model">Model:</label>
+  <input type="text" id="model" name="model" required>
+
+  <label for="year">Year:</label>
+  <input type="number" id="year"  name="year" required>
+
+  <label for="mpg">MPG:</label>
+  <input type="number" id="mpg" name="mpg" required>
+
+  <button type="submit">Submit</button>
+</form>
+
+<h2>Vehicle List</h2>
+<table id="vehicleTable">
+  <thead>
+  <tr>
+    <th>Model</th>
+    <th>Year</th>
+    <th>MPG</th>
+    <th>Delete</th>
+  </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script src="js/main.js"></script>
+</body>
 </html>
