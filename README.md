@@ -30,6 +30,15 @@ Proximity
 Lastly, the principle of proximity was used to group related elements together, making it easier for users to understand which actions or pieces of information are connected. For example, in the vehicle management form, input fields for model, year, and mpg are placed close together, clearly signaling that these fields are part of the same data entry for a single vehicle. Similarly, the save and delete buttons are positioned near the corresponding row of vehicle data, so the user intuitively knows which actions apply to which vehicle. Grouping the error or success messages near the form they belong to also reinforces this principle, as it immediately informs the user which form submission triggered the feedback, minimizing any potential confusion.
 
 
+## Vercel explanation
+
+What was Better About Using Vercel Compared to Glitch:
+Performance and Speed: Vercel offers faster deployment times and better performance compared to Glitch. Vercel is optimized for modern web development and excels in serving static sites, APIs, and serverless functions, which makes the experience more seamless.
+
+Custom Domains and SSL: Vercel provides an easy way to set up custom domains with free SSL certificates, making it a better choice for production environments. Glitch, while easy to use, is often more suited for small projects and experimentation, lacking some of these advanced features by default.
+
+Version Control Integration: Vercel integrates smoothly with Git repositories (like GitHub), allowing for continuous integration and deployment (CI/CD). Every push to a Git repository can automatically trigger a deployment, which Glitch does not handle as efficiently.
+
 
 
 
