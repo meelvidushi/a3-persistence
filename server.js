@@ -1,113 +1,168 @@
-import http from 'http';
-import fs from 'fs';
-import mime from 'mime';
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import User from './models/user.js'; // Make sure your path to user model is correct
+import connectDB from './db.js';
+import cors from 'cors'; // For cross-origin requests
 
-const port = 3000, dir = 'public/';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-let appdata = [
-  { 'model': 'toyota', 'year': 1999, 'mpg': 23 },
-  { 'model': 'honda', 'year': 2004, 'mpg': 30 },
-  { 'model': 'ford', 'year': 1987, 'mpg': 14}
-];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 
-const server = http.createServer(function(request, response) {
-  if (request.method === 'GET') {
-    handleGet(request, response);
-  } else if (request.method === 'POST') {
-    handlePost(request, response);
-  } else if (request.method === 'PUT') {
-    handlePut(request, response);
-  } else if (request.method === 'DELETE') {
-    handleDelete(request, response);
+const app = express();
+const port = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Use environment variables for security
+
+// Enable CORS if frontend is on a different domain/port
+
+app.use(express.json());  // For parsing JSON request bodies
+app.use(express.static('public'));  // For serving static files like auth.html
+
+app.use(cors({
+  origin: 'http://localhost:3001',  // Your frontend URL
+  methods: 'GET,POST,PUT,DELETE',
+  allowedHeaders: 'Content-Type,Authorization',  // Ensure Authorization is allowed
+}));
+
+
+// Connect to MongoDB
+connectDB()
+    .then(() => {
+      app.listen(port, () => {
+        console.log(`Server is running on port ${port}`);
+      });
+    })
+    .catch((error) => {
+      console.error('Failed to connect to MongoDB', error);
+      process.exit(1); // Exit process if DB connection fails
+    });
+
+
+
+// Serve signup or login page for GET /signup
+app.get('/signup', (req, res) => {
+  res.sendFile(__dirname + '/public/auth.html'); // Adjust path to your HTML file
+});
+
+// You can also do the same for the login if needed
+app.get('/login', (req, res) => {
+  res.sendFile(__dirname + '/public/auth.html');
+});
+
+
+// Route for user signup
+app.post('/signup', async (req, res) => {
+  const { email, password } = req.body; // Ensure req.body is parsed
+
+  try {
+    // Check if the user already exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Hash password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user
+    user = new User({ email, password: hashedPassword });
+    await user.save();
+
+    // Generate JWT token for authentication
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+    // Send token back to the client
+    res.json({ message: 'Signup successful', token });
+  } catch (error) {
+    console.error('Error during signup:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-const handleGet = function(request, response) {
-  if (request.url === '/') {
-    sendFile(response, 'public/index.html');
-  } else if (request.url === '/vehicles') {
-    response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(appdata));
-  } else {
-    const filename = dir + request.url.slice(1);
-    sendFile(response, filename);
+// Route for user login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if user exists
+  let user = await User.findOne({ email });
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // Validate password
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // Generate JWT token
+  const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+  // Send success message and token
+  res.json({ message: 'Login successful', token });
+});
+
+// Middleware to authenticate user via JWT
+const authenticate = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied, no token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.userId;  // Attach the decoded userId to the request object
+    next();
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid token' });
   }
 };
 
-const handlePost = function(request, response) {
-  let dataString = '';
+// Protected route: Get vehicles associated with the logged-in user
+app.get('/vehicles', authenticate, async (req, res) => {
+  console.log('Token:', token); // Add this in the `loadVehicles` function
 
-  request.on('data', function(data) {
-    dataString += data;
-  });
+  const user = await User.findById(req.userId);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json(user.modelData);
+});
 
-  request.on('end', function() {
-    const newVehicle = JSON.parse(dataString);
-    appdata.push(newVehicle);
-    response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(appdata));
-  });
-};
+// Protected route: Add vehicle data for the logged-in user
+app.post('/vehicles', authenticate, async (req, res) => {
+  const { model, year, mpg } = req.body;
 
-const handleDelete = function(request, response) {
-  let dataString = '';
+  const user = await User.findById(req.userId);
+  user.modelData.push({ model, year, mpg });
 
-  request.on('data', function(data) {
-    dataString += data;
-  });
+  await user.save();
+  res.json(user.modelData);
+});
 
-  request.on('end', function() {
-    const { model } = JSON.parse(dataString);
+// Protected route: Update vehicle data for the logged-in user
+app.put('/vehicles', authenticate, async (req, res) => {
+  const { oldModel, model, year, mpg } = req.body;
 
-    appdata = appdata.filter(vehicle => vehicle.model !== model);
+  const user = await User.findById(req.userId);
+  user.modelData = user.modelData.map(vehicle =>
+      vehicle.model === oldModel ? { model, year, mpg } : vehicle
+  );
 
-    response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(appdata));
-  });
-};
+  await user.save();
+  res.json(user.modelData);
+});
 
-const sendFile = function(response, filename) {
-  const type = mime.getType(filename);
+// Protected route: Delete vehicle data for the logged-in user
+app.delete('/vehicles', authenticate, async (req, res) => {
+  const { model } = req.body;
 
-  fs.readFile(filename, function(err, content) {
-    if (err === null) {
-      response.writeHeader(200, { 'Content-Type': type });
-      response.end(content);
-    } else {
-      response.writeHeader(404);
-      response.end('404 Error: File Not Found');
-    }
-  });
-};
+  const user = await User.findById(req.userId);
+  user.modelData = user.modelData.filter(vehicle => vehicle.model !== model);
 
-const handlePut = function(request, response) {
-  let dataString = '';
-
-  request.on('data', function(data) {
-    dataString += data;
-  });
-
-  request.on('end', function() {
-    const updatedVehicle = JSON.parse(dataString);
-    const oldModel = updatedVehicle.oldModel;
-
-    appdata = appdata.map(vehicle => {
-      if (vehicle.model === oldModel) {
-        return {
-          model: updatedVehicle.model,
-          year: updatedVehicle.year,
-          mpg: updatedVehicle.mpg
-        };
-      }
-      return vehicle;
-    });
-
-    response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(appdata));
-  });
-};
-
-
-
-server.listen( process.env.PORT || port )
+  await user.save();
+  res.json(user.modelData);
+});

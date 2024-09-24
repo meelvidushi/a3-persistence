@@ -2,6 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('vehicleForm');
   const tableBody = document.querySelector('#vehicleTable tbody');
 
+  // Get token from localStorage
+  const token = localStorage.getItem('token');
+
   fetchAndUpdateTable();
 
   form.addEventListener('submit', (e) => {
@@ -17,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`  // Include Bearer token here
       },
       body: JSON.stringify(newVehicle),
     })
@@ -27,8 +31,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function fetchAndUpdateTable() {
-    fetch('/vehicles').then(response => response.json()).then(data => updateTable(data));
+    const token = localStorage.getItem('token');  // Retrieve the token
+
+    fetch('/vehicles', {
+      headers: {
+        'Authorization': `Bearer ${token}`,  // Ensure the Bearer prefix and token
+        'Content-Type': 'application/json',
+      }
+    })
+        .then(response => response.json())
+        .then(data => updateTable(data))
   }
+
 
   function updateTable(data) {
     tableBody.innerHTML = '';
@@ -56,7 +70,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         fetch('/vehicles', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`  // Include Bearer token here
+          },
           body: JSON.stringify({ oldModel: item.model, ...updatedVehicle })
         }).then(() => fetchAndUpdateTable());
       });
@@ -66,7 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteButton.addEventListener('click', () => {
         fetch('/vehicles', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`  // Include Bearer token here
+          },
           body: JSON.stringify({ model: item.model })
         }).then(response => response.json())
             .then(() => row.remove());
